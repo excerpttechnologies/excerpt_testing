@@ -2417,7 +2417,8 @@ const indstudentSchema = new mongoose.Schema({
   gender: {
     type: String,
     required: true,
-    enum: ['Male', 'Female', 'Other']
+    lowercase: true,
+    enum: ['male', 'female', 'other']
   }
 }, {
   timestamps: true
@@ -2549,6 +2550,8 @@ app.get('/api/indstudents/:id', async (req, res) => {
   }
 });
 
+
+
 // Bulk upload students
 app.post('/api/indstudents/bulk', async (req, res) => {
   const { students } = req.body;
@@ -2558,28 +2561,38 @@ app.post('/api/indstudents/bulk', async (req, res) => {
   }
   console.log("Bulk upload students:", students);
   try {
-    // Validate and prepare data
-    const validStudents = students.map(student => ({
+    // Validate and prepare data — skip rows missing required fields
+    const prepared = students.map(student => ({
       date: student.date || new Date().toISOString().split('T')[0],
-      name: student.name,
-      fatherName: student.fatherName,
-      mobileNumber: student.mobileNumber,
-      collegeName: student.collegeName,
-      gender: student.gender
+      name: student.name && String(student.name).trim(),
+      fatherName: (student.fatherName && String(student.fatherName).trim()) || 'N/A',
+      mobileNumber: student.mobileNumber && String(student.mobileNumber).trim(),
+      collegeName: student.collegeName && String(student.collegeName).trim(),
+      gender: student.gender ? String(student.gender).toLowerCase() : 'other'
     }));
 
-    // Insert all students
-    const result = await Indstudent.insertMany(validStudents);
+    const validStudents = prepared.filter(s => s.name && s.mobileNumber && s.collegeName && s.fatherName && s.gender);
+
+    if (validStudents.length === 0) {
+      return res.status(400).json({ error: 'No valid student rows to insert' });
+    }
+
+    // Use ordered:false so one failing document doesn't stop the rest
+    const result = await Indstudent.insertMany(validStudents, { ordered: false });
     console.log(`Inserted ${result.length} students`);
-    res.json({ 
-      message: 'Students uploaded successfully', 
+    res.json({
+      message: 'Students uploaded (partial if some rows invalid)',
+      requested: students.length,
+      inserted: result.length,
       count: result.length,
       students: result
     });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error('Bulk insert error:', err);
+    res.status(500).json({ error: err.message || 'Internal server error' });
   }
 });
+
 
 // Add single student
 app.post('/api/indstudents', async (req, res) => {
