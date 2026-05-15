@@ -157,9 +157,10 @@
 
         async function fetchStudentDetails(regNo) {
             try {
-                const response = await fetch(`/api/courseStudents?REG_NO=${regNo}`);
+                // Change to:
+const response = await fetch(`http://site11.etpl.ai/api/courseStudents`);
                 const data = await response.json();
-                const student = data.find(student => student.regNo === regNo);
+                const student = data.find(student => String(student.regNo) === String(regNo));
                 if (student) {
                     document.getElementById('studentName').innerText = student.name;
                     document.getElementById('fatherName').value = student.fatherName;
