@@ -126,7 +126,16 @@ app.post("/api/login", async (req, res) => {
   
 app.get('/api/students', async (req, res) => {
   try {
+    const { REG_NO } = req.query;
+    console.log('API /api/students called with REG_NO:', REG_NO);
+
+    // Build match condition if REG_NO is provided
+    const matchCondition = REG_NO ? { REG_NO } : {};
+
     const students = await StudentList.aggregate([
+      {
+        $match: matchCondition
+      },
       {
         $lookup: {
           from: 'colleges',
@@ -193,9 +202,14 @@ From:1,
       }
     ]);
 
+    console.log('MongoDB result count:', students.length);
+    if (REG_NO && students.length === 0) {
+      console.log('No student found with REG_NO:', REG_NO);
+    }
+    
     res.json(students);
   } catch (err) {
-    console.error(err);
+    console.error('Error in /api/students:', err);
     res.status(500).json({ error: 'Server error' });
   }
 });
@@ -392,31 +406,30 @@ app.post('/api/saveFormData', async (req, res) => {
 });
 
 
-app.get("/api/courseStudents", async (req, res) => {
-  try {
-    const courseStudents = await CourseStudent.find();
-    res.json(courseStudents);
-  } catch (error) {
-    console.error('Error fetching course students:', error.message);
-    res.status(500).json({ error: "Server error" });
-  }
-});
-
 app.get('/api/courseStudents', async (req, res) => {
-  const regNo = req.query.REG_NO;
-  if (!regNo) {
-      return res.status(400).json({ error: 'Registration number is required' });
-  }
+  const { REG_NO } = req.query;
+  console.log('API /api/courseStudents called with REG_NO:', REG_NO);
 
   try {
-      const student = await CourseStudent.findOne({ regNo });
+    if (REG_NO) {
+      // Filter by REG_NO if provided
+      const student = await CourseStudent.findOne({ regNo: REG_NO });
+      console.log('MongoDB result for REG_NO:', student ? 'Found' : 'Not found');
+      
       if (!student) {
-          return res.status(404).json({ error: 'Student not found' });
+        console.log('No student found with regNo:', REG_NO);
+        return res.status(404).json({ error: 'Student not found' });
       }
       res.json(student);
+    } else {
+      // Return all students if no REG_NO provided
+      const courseStudents = await CourseStudent.find();
+      console.log('MongoDB result count (all students):', courseStudents.length);
+      res.json(courseStudents);
+    }
   } catch (error) {
-      console.error('Error fetching student details:', error);
-      res.status(500).json({ error: 'Internal server error' });
+    console.error('Error in /api/courseStudents:', error);
+    res.status(500).json({ error: "Server error" });
   }
 });
 
