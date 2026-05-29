@@ -150,125 +150,45 @@
 
 
     <script>
-        // Add loading indicator
-        function showLoading() {
-            const container = document.querySelector('.container');
-            container.innerHTML = '<div style="text-align: center; padding: 50px;"><h3>Loading certificate details...</h3></div>';
-        }
-
-        function showError(message) {
-            const container = document.querySelector('.container');
-            container.innerHTML = `<div style="text-align: center; padding: 50px; color: red;"><h3>${message}</h3><p>Please check the QR code or contact support.</p></div>`;
-        }
-
+    
         async function fetchStudentDetails(REG_NO) {
-            console.log('Fetching student details for REG_NO:', REG_NO);
-            
             try {
-                // Use absolute URL to backend server
-                const response = await fetch(`https://www.excerptech.com/api/students?REG_NO=${REG_NO}`);
-                console.log('API Response status:', response.status);
-                
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-                
+                const response = await fetch(`/api/students?REG_NO=${REG_NO}`);
                 const data = await response.json();
-                console.log('API Response data:', data);
-                
-                // Since backend now filters by REG_NO, data should contain only the matching student
-                const student = Array.isArray(data) ? data[0] : data;
-                
-                if (student && student.REG_NO === REG_NO) {
-                    console.log('Student found:', student.NAME);
-                    
-                    // Restore the original container content by reloading the page structure
-                    // Instead of reloading, we'll rebuild the content
-                    const container = document.querySelector('.container');
-                    container.innerHTML = `
-                        <div class="row">
-                            <div class="col-lg-4" style="margin-top: -100px;">
-                                <div class="card shadow-sm">
-                                    <div class="card-header bg-transparent text-center">
-                                       <b><h3 id="studentName">${student.NAME}</h3></b> 
-                                    </div>
-                                    <div class="card-body">
-                                        <form>
-                                            <label for="fatherName">Father's Name:</label>
-                                            <input type="text" id="fatherName" name="fatherName" class="form-control mb-2" value="${student.FATHER_NAME}" disabled>
-                                            <label for="section">Reg No:</label>
-                                            <input type="text" id="section" name="section" class="form-control mb-2" value="${student.REG_NO}" disabled>
-                                        </form>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="col-lg-8" style="margin-top: -100px;">
-                                <div class="card shadow-sm">
-                                    <div class="card-header bg-transparent border-0">
-                                        <h3 class="mb-0"><i class="far fa-clone pr-1"></i>General Information</h3>
-                                    </div>
-                                    <div class="card-body pt-0">
-                                        <table class="table table-bordered">
-                                            <tr>
-                                                <th width="30%">College name</th>
-                                                <td width="2%">:</td>
-                                                <td id="collegeName">${student.college_name}</td>
-                                            </tr>
-                                            <tr>
-                                                <th width="30%">Academic Year</th>
-                                                <td width="2%">:</td>
-                                                <td id="yop">${student.yop}</td>
-                                            </tr>
-                                            <tr>
-                                                <th width="30%">Course</th>
-                                                <td width="2%">:</td>
-                                                <td id="Course">${student.coursename}</td>
-                                                <td></td>
-                                            </tr>
-                                        </table>
-                                    </div>
-                                </div>
-                            </div>
-                            <div style="font-size: 18px; margin-left: 30px;">
-                                <p><b>"He/she successfully completed their internship at EXCERPT TECHNOLOGIES PVT.LTD, demonstrating exceptional dedication and skill. Their contributions significantly enriched our projects and team dynamics, showcasing their potential for future success in the industry."</b></p>
-                            </div>
-                        </div>
-                    `;
+                const student = data.find(student => student.REG_NO === REG_NO); 
+                if (student) {
+             
+                    document.getElementById('studentName').innerText = student.NAME;
+                    document.getElementById('fatherName').value = student.FATHER_NAME;
+                    document.getElementById('Course').textContent = student.coursename;
+                    document.getElementById('collegeName').textContent = student.college_name;
+                    document.getElementById('yop').textContent = student.yop;
                 } else {
                     console.error('Student not found with registration number:', REG_NO);
-                    showError('Certificate not found. Invalid registration number.');
                 }
             } catch (error) {
                 console.error('Error fetching student details:', error);
-                showError('Failed to load certificate details. Please try again later.');
             }
         }
 
+       
         function getRegistrationNumberFromURL() {
             const urlParams = new URLSearchParams(window.location.search);
             const REG_NO = urlParams.get('REG_NO');
-            console.log('Extracted REG_NO from URL:', REG_NO);
             return REG_NO;
         }
 
+
         async function updateFormWithStudentDetails() {
             const REG_NO = getRegistrationNumberFromURL();
-            
-            if (!REG_NO) {
-                console.error('No REG_NO found in URL');
-                showError('No registration number provided in URL.');
-                return;
+            if (REG_NO) {
+                fetchStudentDetails(REG_NO);
+                document.getElementById('section').value = REG_NO;
             }
-            
-            showLoading();
-            await fetchStudentDetails(REG_NO);
         }
 
-        // Initialize on page load
-        document.addEventListener('DOMContentLoaded', () => {
-            console.log('Certificate page loaded');
-            updateFormWithStudentDetails();
-        });
+       
+        updateFormWithStudentDetails();
     </script>
 
 </body>
