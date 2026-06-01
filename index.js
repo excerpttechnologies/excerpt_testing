@@ -124,13 +124,23 @@ app.post("/api/login", async (req, res) => {
 
 
   
+function escapeRegExp(value) {
+  return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function normalizeRegNoQuery(regNo) {
+  return String(regNo || '').trim().toUpperCase();
+}
+
 app.get('/api/students', async (req, res) => {
   try {
     const { REG_NO } = req.query;
-    console.log('API /api/students called with REG_NO:', REG_NO);
+    const normalizedRegNo = REG_NO ? normalizeRegNoQuery(REG_NO) : null;
+    console.log('API /api/students called with REG_NO:', normalizedRegNo || '(all)');
 
-    // Build match condition if REG_NO is provided
-    const matchCondition = REG_NO ? { REG_NO } : {};
+    const matchCondition = normalizedRegNo
+      ? { REG_NO: { $regex: new RegExp(`^${escapeRegExp(normalizedRegNo)}$`, 'i') } }
+      : {};
 
     const students = await StudentList.aggregate([
       {
@@ -203,8 +213,8 @@ From:1,
     ]);
 
     console.log('MongoDB result count:', students.length);
-    if (REG_NO && students.length === 0) {
-      console.log('No student found with REG_NO:', REG_NO);
+    if (normalizedRegNo && students.length === 0) {
+      console.log('No student found with REG_NO:', normalizedRegNo);
     }
     
     res.json(students);
@@ -408,16 +418,18 @@ app.post('/api/saveFormData', async (req, res) => {
 
 app.get('/api/courseStudents', async (req, res) => {
   const { REG_NO } = req.query;
-  console.log('API /api/courseStudents called with REG_NO:', REG_NO);
+  const normalizedRegNo = REG_NO ? normalizeRegNoQuery(REG_NO) : null;
+  console.log('API /api/courseStudents called with REG_NO:', normalizedRegNo || '(all)');
 
   try {
-    if (REG_NO) {
-      // Filter by REG_NO if provided
-      const student = await CourseStudent.findOne({ regNo: REG_NO });
+    if (normalizedRegNo) {
+      const student = await CourseStudent.findOne({
+        regNo: { $regex: new RegExp(`^${escapeRegExp(normalizedRegNo)}$`, 'i') },
+      });
       console.log('MongoDB result for REG_NO:', student ? 'Found' : 'Not found');
       
       if (!student) {
-        console.log('No student found with regNo:', REG_NO);
+        console.log('No student found with regNo:', normalizedRegNo);
         return res.status(404).json({ error: 'Student not found' });
       }
       res.json(student);
