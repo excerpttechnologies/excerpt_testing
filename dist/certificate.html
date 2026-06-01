@@ -150,45 +150,214 @@
 
 
     <script>
-    
-        async function fetchStudentDetails(REG_NO) {
-            try {
-                const response = await fetch(`/api/students?REG_NO=${REG_NO}`);
-                const data = await response.json();
-                const student = data.find(student => student.REG_NO === REG_NO); 
-                if (student) {
-             
-                    document.getElementById('studentName').innerText = student.NAME;
-                    document.getElementById('fatherName').value = student.FATHER_NAME;
-                    document.getElementById('Course').textContent = student.coursename;
-                    document.getElementById('collegeName').textContent = student.college_name;
-                    document.getElementById('yop').textContent = student.yop;
-                } else {
-                    console.error('Student not found with registration number:', REG_NO);
-                }
-            } catch (error) {
-                console.error('Error fetching student details:', error);
+        // DEBUG MODE - Enable comprehensive logging
+        const DEBUG_MODE = true;
+        
+        function logDebug(...args) {
+            if (DEBUG_MODE) {
+                console.log('[Certificate Debug]', ...args);
             }
         }
 
-       
+        // Add loading indicator
+        function showLoading() {
+            const container = document.querySelector('.container');
+            container.innerHTML = '<div style="text-align: center; padding: 50px;"><h3>Loading certificate details...</h3></div>';
+        }
+
+        function showError(message) {
+            const container = document.querySelector('.container');
+            container.innerHTML = `<div style="text-align: center; padding: 50px; color: red;"><h3>${message}</h3><p>Please check the QR code or contact support.</p></div>`;
+        }
+
+        // Get API base URL dynamically
+        function getApiBaseUrl() {
+            // Use current origin to construct API URL
+            const origin = window.location.origin;
+            logDebug('Current origin:', origin);
+            
+            // If accessing from excerptech.com domain, use the same domain for API
+            if (origin.includes('excerptech.com')) {
+                return origin;
+            }
+            
+            // Fallback to admin subdomain for production
+            return 'https://admin.excerptech.com';
+        }
+
+        async function fetchStudentDetails(regNo) {
+            logDebug('Fetching student details for regNo:', regNo);
+            logDebug('Current URL:', window.location.href);
+            
+            const apiBaseUrl = getApiBaseUrl();
+            const apiUrl = `${apiBaseUrl}/api/students?REG_NO=${encodeURIComponent(regNo)}`;
+            logDebug('API URL:', apiUrl);
+            
+            try {
+                // Fetch with credentials for CORS-safe requests
+                const response = await fetch(apiUrl, {
+                    method: 'GET',
+                    credentials: 'include',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                logDebug('API Response status:', response.status);
+                logDebug('API Response ok:', response.ok);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                logDebug('API Response data:', data);
+                
+                // Validate response
+                if (!data) {
+                    logDebug('Response data is null/undefined');
+                    showError('Student not found. No data returned from server.');
+                    return;
+                }
+                
+                if (Array.isArray(data) && data.length === 0) {
+                    logDebug('Response is empty array');
+                    showError('Student not found. Invalid registration number.');
+                    return;
+                }
+                
+                // Get student from response (handle both array and single object)
+                const student = Array.isArray(data) ? data[0] : data;
+                
+                if (!student) {
+                    logDebug('Student object is null/undefined');
+                    showError('Student not found. Invalid registration number.');
+                    return;
+                }
+                
+                logDebug('Student object:', student);
+                
+                // Validate REG_NO matches (handle both uppercase and lowercase field names)
+                const studentRegNo = student.REG_NO || student.regNo;
+                if (!studentRegNo || String(studentRegNo).toUpperCase() !== String(regNo).toUpperCase()) {
+                    logDebug('REG_NO mismatch. Expected:', regNo, 'Got:', studentRegNo);
+                    showError('Certificate not found. Registration number mismatch.');
+                    return;
+                }
+                
+                logDebug('Student found, rendering certificate');
+                
+                // Map fields from StudentList (uppercase) to certificate template
+                // StudentList uses: NAME, FATHER_NAME, REG_NO, college_name, coursename, yop
+                const studentData = {
+                    name: student.NAME || student.name || '-',
+                    fatherName: student.FATHER_NAME || student.fatherName || '-',
+                    regNo: student.REG_NO || student.regNo || '-',
+                    collegeName: student.college_name || student.collegeName || '-',
+                    course: student.coursename || student.COURSETITLE || student.course || '-',
+                    yop: student.yop || '-'
+                };
+                
+                logDebug('Mapped student data:', studentData);
+                
+                // Rebuild the container content with student data
+                const container = document.querySelector('.container');
+                container.innerHTML = `
+                    <div class="row">
+                        <div class="col-lg-4" style="margin-top: -100px;">
+                            <div class="card shadow-sm">
+                                <div class="card-header bg-transparent text-center">
+                                   <b><h3 id="studentName">${studentData.name}</h3></b> 
+                                </div>
+                                <div class="card-body">
+                                    <form>
+                                        <label for="fatherName">Father's Name:</label>
+                                        <input type="text" id="fatherName" name="fatherName" class="form-control mb-2" value="${studentData.fatherName}" disabled>
+                                        <label for="section">Reg No:</label>
+                                        <input type="text" id="section" name="section" class="form-control mb-2" value="${studentData.regNo}" disabled>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-lg-8" style="margin-top: -100px;">
+                            <div class="card shadow-sm">
+                                <div class="card-header bg-transparent border-0">
+                                    <h3 class="mb-0"><i class="far fa-clone pr-1"></i>General Information</h3>
+                                </div>
+                                <div class="card-body pt-0">
+                                    <table class="table table-bordered">
+                                        <tr>
+                                            <th width="30%">College name</th>
+                                            <td width="2%">:</td>
+                                            <td id="collegeName">${studentData.collegeName}</td>
+                                        </tr>
+                                        <tr>
+                                            <th width="30%">Academic Year</th>
+                                            <td width="2%">:</td>
+                                            <td id="yop">${studentData.yop}</td>
+                                        </tr>
+                                        <tr>
+                                            <th width="30%">Course</th>
+                                            <td width="2%">:</td>
+                                            <td id="Course">${studentData.course}</td>
+                                            <td></td>
+                                        </tr>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                        <div style="font-size: 18px; margin-left: 30px;">
+                            <p><b>"He/she successfully completed their internship at EXCERPT TECHNOLOGIES PVT.LTD, demonstrating exceptional dedication and skill. Their contributions significantly enriched our projects and team dynamics, showcasing their potential for future success in the industry."</b></p>
+                        </div>
+                    </div>
+                `;
+                
+                logDebug('Certificate rendered successfully');
+                
+            } catch (error) {
+                logDebug('Error fetching student details:', error);
+                console.error('Full error:', error);
+                showError('Failed to load certificate details. Please try again later.');
+            }
+        }
+
         function getRegistrationNumberFromURL() {
             const urlParams = new URLSearchParams(window.location.search);
-            const REG_NO = urlParams.get('REG_NO');
-            return REG_NO;
+            const regNo = urlParams.get('REG_NO');
+            logDebug('Extracted regNo from URL:', regNo);
+            
+            // Handle case sensitivity
+            if (!regNo) {
+                // Try lowercase as fallback
+                const regNoLower = urlParams.get('reg_no');
+                logDebug('Trying lowercase reg_no:', regNoLower);
+                return regNoLower;
+            }
+            
+            return regNo;
         }
-
 
         async function updateFormWithStudentDetails() {
-            const REG_NO = getRegistrationNumberFromURL();
-            if (REG_NO) {
-                fetchStudentDetails(REG_NO);
-                document.getElementById('section').value = REG_NO;
+            const regNo = getRegistrationNumberFromURL();
+            
+            if (!regNo) {
+                logDebug('No regNo found in URL');
+                showError('No registration number provided in URL.');
+                return;
             }
+            
+            logDebug('Starting certificate load process with REG_NO:', regNo);
+            showLoading();
+            await fetchStudentDetails(regNo);
         }
 
-       
-        updateFormWithStudentDetails();
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            logDebug('Certificate page loaded');
+            logDebug('Full URL:', window.location.href);
+            logDebug('Search params:', window.location.search);
+            updateFormWithStudentDetails();
+        });
     </script>
 
 </body>
