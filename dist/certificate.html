@@ -150,6 +150,17 @@
 
 
     <script>
+        (function redirectWwwToAdmin() {
+            const host = window.location.hostname;
+            if (host === 'www.excerptech.com' || host === 'excerptech.com') {
+                const target = 'https://admin.excerptech.com' + window.location.pathname + window.location.search;
+                window.location.replace(target);
+                return;
+            }
+        })();
+
+        const CERTIFICATE_API_BASE = 'https://admin.excerptech.com';
+
         // DEBUG MODE - Enable comprehensive logging
         const DEBUG_MODE = true;
         
@@ -171,10 +182,15 @@
         }
 
         function getApiBaseUrl() {
-            const origin = window.location.origin;
-            console.log('Current Origin', origin);
+            const host = window.location.hostname;
+            const base =
+                host === 'localhost' || host === '127.0.0.1'
+                    ? window.location.origin
+                    : CERTIFICATE_API_BASE;
+            console.log('Current Origin', window.location.origin);
             console.log('Current URL', window.location.href);
-            return origin;
+            console.log('API URL base', base);
+            return base;
         }
 
         function normalizeRegNo(regNo) {
